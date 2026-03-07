@@ -40,36 +40,19 @@ defmodule ExSlop.Check.Readability.HungarianName do
     result.issues
   end
 
-  defp walk({:=, _, [lhs, _rhs]} = ast, ctx) do
-    issues = extract_variables(lhs) |> Enum.filter(&hungarian?/1)
-
-    ctx =
-      Enum.reduce(issues, ctx, fn {name, meta}, ctx ->
-        put_issue(ctx, issue_for(ctx, meta, name))
-      end)
-
-    {ast, ctx}
+  # Only flag assignments where the LHS is a simple variable (not destructuring)
+  # user_map = something  — flagged
+  # %{user_map: user_map} = config  — NOT flagged (matching a key name)
+  defp walk({:=, _, [{name, meta, context}, _rhs]} = ast, ctx)
+       when is_atom(name) and is_atom(context) do
+    if hungarian?({name, meta}) do
+      {ast, put_issue(ctx, issue_for(ctx, meta, name))}
+    else
+      {ast, ctx}
+    end
   end
 
   defp walk(ast, ctx), do: {ast, ctx}
-
-  defp extract_variables({name, meta, context}) when is_atom(name) and is_atom(context) do
-    [{name, meta}]
-  end
-
-  defp extract_variables({_, _, args}) when is_list(args) do
-    Enum.flat_map(args, &extract_variables/1)
-  end
-
-  defp extract_variables({left, right}) do
-    extract_variables(left) ++ extract_variables(right)
-  end
-
-  defp extract_variables(list) when is_list(list) do
-    Enum.flat_map(list, &extract_variables/1)
-  end
-
-  defp extract_variables(_), do: []
 
   defp hungarian?({name, _meta}) do
     name_str = Atom.to_string(name)

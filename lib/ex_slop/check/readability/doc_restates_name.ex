@@ -24,46 +24,73 @@ defmodule ExSlop.Check.Readability.DocRestatesName do
       """
     ]
 
-  @verbs ~w(create creates creating update updates updating delete deletes deleting
-    get gets getting fetch fetches fetching find finds finding
-    list lists listing return returns returning build builds building
-    set sets setting remove removes removing parse parses parsing
-    format formats formatting convert converts converting
-    validate validates validating check checks checking
-    handle handles handling process processes processing
-    start starts starting stop stops stopping
-    send sends sending receive receives receiving
-    add adds adding put puts putting)
-
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
     ctx = Context.build(source_file, params, __MODULE__)
-    result = Credo.Code.prewalk(source_file, &walk/2, ctx)
-    result.issues
+
+    source_file
+    |> Credo.SourceFile.ast()
+    |> collect_doc_def_pairs()
+    |> Enum.reduce(ctx, fn {docstring, meta, fun_name}, ctx ->
+      if restates_name?(docstring, fun_name) do
+        put_issue(ctx, issue_for(ctx, meta))
+      else
+        ctx
+      end
+    end)
+    |> Map.get(:issues, [])
   end
 
-  defp walk({:@, _, [{:doc, meta, [docstring]}]} = ast, ctx) when is_binary(docstring) do
+  defp collect_doc_def_pairs(ast) do
+    {_, {_pending, pairs}} =
+      Macro.prewalk(ast, {nil, []}, fn
+        {:@, _, [{:doc, meta, [docstring]}]} = node, {_pending, pairs}
+        when is_binary(docstring) ->
+          {node, {{docstring, meta}, pairs}}
+
+        {:def, _, [{name, _, _} | _]} = node, {{docstring, meta}, pairs} when is_atom(name) ->
+          {node, {nil, [{docstring, meta, name} | pairs]}}
+
+        {:def, _, _} = node, {_pending, pairs} ->
+          {node, {nil, pairs}}
+
+        {:defp, _, _} = node, {_pending, pairs} ->
+          {node, {nil, pairs}}
+
+        {:@, _, [{attr, _, _}]} = node, {_pending, pairs} when attr in [:doc, :moduledoc] ->
+          {node, {nil, pairs}}
+
+        node, acc ->
+          {node, acc}
+      end)
+
+    pairs
+  end
+
+  defp restates_name?(docstring, fun_name) do
     trimmed = String.trim(docstring)
 
-    if single_sentence?(trimmed) and restates_verb?(trimmed) do
-      {ast, put_issue(ctx, issue_for(ctx, meta))}
-    else
-      {ast, ctx}
-    end
+    single_sentence?(trimmed) and words_from_name_in_doc?(trimmed, fun_name)
   end
-
-  defp walk(ast, ctx), do: {ast, ctx}
 
   defp single_sentence?(doc) do
-    not String.contains?(doc, "\n") and
-      String.length(doc) < 120 and
-      Regex.match?(~r/^[A-Z][^.]*\.?\s*$/, doc)
+    not String.contains?(doc, "\n") and String.length(doc) < 80
   end
 
-  defp restates_verb?(doc) do
-    first_word = doc |> String.split(~r/\s+/, parts: 2) |> hd() |> String.downcase()
-    first_word in @verbs
+  defp words_from_name_in_doc?(doc, fun_name) do
+    name_words =
+      fun_name
+      |> Atom.to_string()
+      |> String.split("_")
+      |> Enum.reject(&(&1 in ~w(a an the is do)))
+
+    doc_lower = doc |> String.downcase() |> String.replace(~r/[^a-z\s]/, "")
+
+    length(name_words) >= 2 and
+      Enum.all?(name_words, fn word ->
+        String.contains?(doc_lower, word)
+      end)
   end
 
   defp issue_for(ctx, meta) do

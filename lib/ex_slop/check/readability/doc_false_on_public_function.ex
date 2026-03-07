@@ -10,8 +10,10 @@ defmodule ExSlop.Check.Readability.DocFalseOnPublicFunction do
       If the function is truly internal, make it `defp`. If it's public API,
       document it.
 
-      The only valid use is on callbacks (`@impl true`) where the behaviour's
-      doc suffices — this check skips those.
+      This check skips known legitimate uses:
+      - Functions annotated with `@impl true` (behaviour callbacks)
+      - OTP callbacks: `child_spec`, `start_link`, `init`
+      - Protocol/macro internals: `__using__`, `__changeset__`, etc.
 
           # bad — cargo-culted from Phoenix generators
           @doc false
@@ -26,6 +28,12 @@ defmodule ExSlop.Check.Readability.DocFalseOnPublicFunction do
       """
     ]
 
+  @otp_callbacks ~w(child_spec start_link init terminate code_change
+    handle_call handle_cast handle_info handle_continue format_status)a
+
+  @dunder_functions ~w(__using__ __before_compile__ __after_compile__
+    __changeset__ __struct__ __schema__ __fields__ __resource__)a
+
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
@@ -34,9 +42,8 @@ defmodule ExSlop.Check.Readability.DocFalseOnPublicFunction do
     result.issues
   end
 
-  # Track @doc false, then check if followed by def (not defp)
   defp walk({:@, _, [{:doc, _, [false]}]} = ast, ctx) do
-    {ast, Map.put(ctx, :doc_false_line, ast |> source_line())}
+    {ast, Map.put(ctx, :doc_false_line, source_line(ast))}
   end
 
   defp walk({:@, _, [{:impl, _, [true]}]} = ast, ctx) do
@@ -50,23 +57,30 @@ defmodule ExSlop.Check.Readability.DocFalseOnPublicFunction do
   defp walk({:def, meta, [{name, _, _} | _]} = ast, ctx) when is_atom(name) do
     if Map.has_key?(ctx, :doc_false_line) do
       ctx = Map.delete(ctx, :doc_false_line)
-      {ast, put_issue(ctx, issue_for(ctx, meta, name))}
+
+      if exempt?(name) do
+        {ast, ctx}
+      else
+        {ast, put_issue(ctx, issue_for(ctx, meta, name))}
+      end
     else
       {ast, ctx}
     end
   end
 
-  # Reset on defp — that's fine
   defp walk({:defp, _, _} = ast, ctx) do
     {ast, Map.delete(ctx, :doc_false_line)}
   end
 
-  # Reset on any other @doc / @moduledoc
   defp walk({:@, _, [{attr, _, _}]} = ast, ctx) when attr in [:doc, :moduledoc] do
     {ast, Map.delete(ctx, :doc_false_line)}
   end
 
   defp walk(ast, ctx), do: {ast, ctx}
+
+  defp exempt?(name) do
+    name in @otp_callbacks or name in @dunder_functions
+  end
 
   defp source_line({:@, meta, _}), do: meta[:line]
   defp source_line(_), do: nil
