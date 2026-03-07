@@ -28,9 +28,10 @@ defmodule ExSlop.Check.Refactor.IdentityMap do
   # Enum.map(list, fn x -> x end)
   defp walk(
          {{:., meta, [{:__aliases__, _, [:Enum]}, :map]}, _,
-          [_enumerable, {:fn, _, [{:->, _, [[{var, _, _}], {var, _, _}]}]}]} = ast,
+          [_enumerable, {:fn, _, [{:->, _, [[{var, _, ctx_a}], {var, _, ctx_b}]}]}]} = ast,
          ctx
-       ) do
+       )
+       when is_atom(var) and var != :{} and var != :%{} and is_atom(ctx_a) and is_atom(ctx_b) do
     {ast, put_issue(ctx, issue_for(ctx, meta))}
   end
 
@@ -40,10 +41,11 @@ defmodule ExSlop.Check.Refactor.IdentityMap do
           [
             _,
             {{:., meta, [{:__aliases__, _, [:Enum]}, :map]}, _,
-             [{:fn, _, [{:->, _, [[{var, _, _}], {var, _, _}]}]}]}
+             [{:fn, _, [{:->, _, [[{var, _, ctx_a}], {var, _, ctx_b}]}]}]}
           ]} = ast,
          ctx
-       ) do
+       )
+       when is_atom(var) and var != :{} and var != :%{} and is_atom(ctx_a) and is_atom(ctx_b) do
     {ast, put_issue(ctx, issue_for(ctx, meta))}
   end
 

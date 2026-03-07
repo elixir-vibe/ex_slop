@@ -42,6 +42,35 @@ defmodule ExSlop.Check.Refactor.IdentityMapTest do
     |> refute_issues()
   end
 
+  test "does NOT report Enum.map over tuple destructuring with transformation" do
+    """
+    defmodule Test do
+      def foo(entries) do
+        entries
+        |> Enum.map(fn {type, url, depth, tries} ->
+          {String.to_atom(type), URI.parse(url), depth, tries}
+        end)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(IdentityMap)
+    |> refute_issues()
+  end
+
+  test "does NOT report Enum.map over map destructuring" do
+    """
+    defmodule Test do
+      def foo(items) do
+        Enum.map(items, fn %{name: name} -> %{label: name} end)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(IdentityMap)
+    |> refute_issues()
+  end
+
   test "does NOT report Enum.map with capture" do
     """
     defmodule Test do

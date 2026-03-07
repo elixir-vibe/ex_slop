@@ -20,13 +20,10 @@ defmodule ExSlop do
     ExSlop.Check.Refactor.TryRescueWithSafeAlternative,
     ExSlop.Check.Refactor.WithIdentityElse,
     ExSlop.Check.Readability.NarratorDoc,
-    ExSlop.Check.Readability.DocRestatesName,
     ExSlop.Check.Readability.DocFalseOnPublicFunction,
     ExSlop.Check.Readability.BoilerplateDocParams,
     ExSlop.Check.Readability.ObviousComment,
-    ExSlop.Check.Readability.StepComment,
-    ExSlop.Check.Readability.SectionDivider,
-    ExSlop.Check.Readability.HungarianName
+    ExSlop.Check.Readability.StepComment
   ]
 
   def checks, do: @checks
