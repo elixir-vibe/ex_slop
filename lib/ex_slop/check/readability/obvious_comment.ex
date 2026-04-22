@@ -4,6 +4,7 @@ defmodule ExSlop.Check.Readability.ObviousComment do
     base_priority: :low,
     category: :readability,
     tags: [:ex_slop],
+    param_defaults: [additional_keywords: []],
     explanations: [
       check: """
       Comments that restate what the next line of code does are noise.
@@ -25,7 +26,11 @@ defmodule ExSlop.Check.Readability.ObviousComment do
           # good — explains HOW or WHY (not flagged despite starting with "Fetch")
           # Fetch the connection from the pool, blocking up to 5s
           conn = ConnectionPool.checkout!(pool, timeout: 5_000)
-      """
+      """,
+      params: [
+        additional_keywords:
+          "Additional string prefixes or regexes to match against the comment text after `# `."
+      ]
     ]
 
   @obvious_verbs [
@@ -81,6 +86,11 @@ defmodule ExSlop.Check.Readability.ObviousComment do
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
+    additional_keywords = Params.get(params, :additional_keywords, __MODULE__)
+
+    {additional_prefixes, additional_regexes} =
+      Enum.split_with(additional_keywords, &is_binary/1)
+
     ctx = Context.build(source_file, params, __MODULE__)
     doc_ranges = DocRanges.build(SourceFile.source(source_file))
 
@@ -89,7 +99,8 @@ defmodule ExSlop.Check.Readability.ObviousComment do
     |> Enum.reduce(ctx, fn {line_no, line}, ctx ->
       trimmed = String.trim(line)
 
-      if not DocRanges.inside_doc?(line_no, doc_ranges) and obvious?(trimmed) do
+      if not DocRanges.inside_doc?(line_no, doc_ranges) and
+           obvious?(trimmed, additional_prefixes, additional_regexes) do
         put_issue(ctx, issue_for(ctx, line_no))
       else
         ctx
@@ -98,15 +109,21 @@ defmodule ExSlop.Check.Readability.ObviousComment do
     |> Map.get(:issues, [])
   end
 
-  defp obvious?(line) do
+  defp obvious?(line, additional_prefixes, additional_regexes) do
     comment_body = extract_comment_body(line)
 
     comment_body != nil and
       String.length(comment_body) < @max_obvious_length and
-      obvious_verb_article?(comment_body) and
+      obvious_trigger?(comment_body, additional_prefixes, additional_regexes) and
       not has_technical_detail?(comment_body) and
       not keeper_keyword?(line) and
       not tool_directive?(line)
+  end
+
+  defp obvious_trigger?(comment_body, additional_prefixes, additional_regexes) do
+    obvious_verb_article?(comment_body) or
+      String.starts_with?(comment_body, additional_prefixes) or
+      Enum.any?(additional_regexes, &Regex.match?(&1, comment_body))
   end
 
   defp obvious_verb_article?(comment) do
