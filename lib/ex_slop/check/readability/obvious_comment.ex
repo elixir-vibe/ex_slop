@@ -28,11 +28,50 @@ defmodule ExSlop.Check.Readability.ObviousComment do
       """
     ]
 
-  @obvious_pattern ~r/\A\s*#\s*(?:Fetch|Get|Create|Build|Update|Delete|Remove|Set|Parse|Convert|Validate|Check|Process|Handle|Format|Transform|Normalize|Calculate|Compute|Extract|Initialize|Define|Assign|Store|Save|Insert|Add|Return|Ensure|Verify)\s+(?:the|a|an)\s/i
+  @obvious_verbs [
+    "Fetch",
+    "Get",
+    "Create",
+    "Build",
+    "Update",
+    "Delete",
+    "Remove",
+    "Set",
+    "Parse",
+    "Convert",
+    "Validate",
+    "Check",
+    "Process",
+    "Handle",
+    "Format",
+    "Transform",
+    "Normalize",
+    "Calculate",
+    "Compute",
+    "Extract",
+    "Initialize",
+    "Define",
+    "Assign",
+    "Store",
+    "Save",
+    "Insert",
+    "Add",
+    "Return",
+    "Ensure",
+    "Verify"
+  ]
 
-  @keeper_pattern ~r/\bTODO\b|\bFIXME\b|\bHACK\b|\bNOTE\b|\bSAFETY\b|\bWARN\b|\bBUG\b|\bXXX\b|\bPERF\b/
+  @keeper_keywords ["TODO", "FIXME", "HACK", "NOTE", "SAFETY", "WARN", "BUG", "XXX", "PERF"]
 
-  @tool_directive ~r/credo:|dialyzer:|sobelow:|coveralls|noinspection|elixir-ls|ExUnit/
+  @tool_keywords [
+    "credo:",
+    "dialyzer:",
+    "sobelow:",
+    "coveralls",
+    "noinspection",
+    "elixir-ls",
+    "ExUnit"
+  ]
 
   @max_obvious_length 60
 
@@ -64,24 +103,72 @@ defmodule ExSlop.Check.Readability.ObviousComment do
 
     comment_body != nil and
       String.length(comment_body) < @max_obvious_length and
-      Regex.match?(@obvious_pattern, line) and
+      obvious_verb_article?(comment_body) and
       not has_technical_detail?(comment_body) and
-      not Regex.match?(@keeper_pattern, line) and
-      not Regex.match?(@tool_directive, line)
+      not keeper_keyword?(line) and
+      not tool_directive?(line)
+  end
+
+  defp obvious_verb_article?(comment) do
+    Enum.any?(@obvious_verbs, fn verb ->
+      case String.split(comment, " ", parts: 3) do
+        [^verb, article | _] when article in ["the", "a", "an"] -> true
+        _ -> false
+      end
+    end)
+  end
+
+  defp keeper_keyword?(line) do
+    Enum.any?(@keeper_keywords, &String.contains?(line, &1))
+  end
+
+  defp tool_directive?(line) do
+    Enum.any?(@tool_keywords, &String.contains?(line, &1))
   end
 
   defp extract_comment_body(line) do
-    case Regex.run(~r/\A\s*#\s*(.+)/, line) do
-      [_, body] -> body
+    trimmed = String.trim_leading(line)
+
+    case trimmed do
+      "#" <> rest -> String.trim_leading(rest)
       _ -> nil
     end
   end
 
+  @technical_indicators [
+    "timeout",
+    "blocking",
+    "because",
+    "since",
+    "due to",
+    "avoid",
+    "prevent",
+    "N+1",
+    "O(",
+    "concurrent",
+    "async",
+    "idempotent",
+    "so that",
+    "so we",
+    "otherwise",
+    "in order",
+    "necessary",
+    "compat",
+    "bootstrap",
+    "by hand",
+    "workaround",
+    "cannot",
+    "can't",
+    "shouldn't",
+    "must not",
+    "not supported"
+  ]
+
   defp has_technical_detail?(comment) do
-    Regex.match?(
-      ~r/\d|timeout|blocking|because|since|due to|avoid|prevent|N\+1|O\(|concurrent|async|idempotent|so that|so we|otherwise|in order|necessary|compat|bootstrap|by hand|workaround|cannot|can't|shouldn't|must not|not supported/i,
-      comment
-    )
+    has_digit = Enum.any?(?0..?9, &String.contains?(comment, <<&1>>))
+    has_indicator = Enum.any?(@technical_indicators, &String.contains?(comment, &1))
+
+    has_digit or has_indicator
   end
 
   defp issue_for(ctx, line_no) do

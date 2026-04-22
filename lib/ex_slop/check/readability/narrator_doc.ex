@@ -41,7 +41,64 @@ defmodule ExSlop.Check.Readability.NarratorDoc do
       """
     ]
 
-  @narrator_pattern ~r/\A\s*(?:The\s+`?\w+`?\s+|This\s+)(?:module|function|struct|schema|plug|controller|view|component|live\s?view|channel|socket|endpoint|router|context|worker|server|supervisor|task|behaviour|macro)\s+(?:provides?|handles?|is\s+responsible\s+for|is\s+used\s+(?:to|for)|manages?|implements?|defines?|contains?|represents?|serves?\s+as|acts?\s+as|holds?|stores?|wraps?|encapsulates?|exposes?)/i
+  @narrator_prefixes ["This ", "The "]
+
+  @narrator_nouns [
+    "module",
+    "function",
+    "struct",
+    "schema",
+    "plug",
+    "controller",
+    "view",
+    "component",
+    "live view",
+    "channel",
+    "socket",
+    "endpoint",
+    "router",
+    "context",
+    "worker",
+    "server",
+    "supervisor",
+    "task",
+    "behaviour",
+    "macro"
+  ]
+
+  @narrator_verbs [
+    "provides",
+    "provide",
+    "handles",
+    "handle",
+    "is responsible for",
+    "is used to",
+    "is used for",
+    "manages",
+    "manage",
+    "implements",
+    "implement",
+    "defines",
+    "define",
+    "contains",
+    "contain",
+    "represents",
+    "represent",
+    "serves as",
+    "serve as",
+    "acts as",
+    "act as",
+    "holds",
+    "hold",
+    "stores",
+    "store",
+    "wraps",
+    "wrap",
+    "encapsulates",
+    "encapsulate",
+    "exposes",
+    "expose"
+  ]
 
   @doc false
   @impl true
@@ -72,8 +129,28 @@ defmodule ExSlop.Check.Readability.NarratorDoc do
   defp walk(ast, ctx), do: {ast, ctx}
 
   defp narrator?(docstring) do
-    first_line = docstring |> String.trim_leading() |> String.split("\n", parts: 2) |> hd()
-    Regex.match?(@narrator_pattern, first_line)
+    first_line =
+      docstring
+      |> String.trim_leading()
+      |> String.split("\n", parts: 2)
+      |> hd()
+      |> String.downcase()
+
+    has_narrator_prefix?(first_line) and
+      has_narrator_noun?(first_line) and
+      has_narrator_verb?(first_line)
+  end
+
+  defp has_narrator_prefix?(line) do
+    Enum.any?(@narrator_prefixes, &String.starts_with?(line, String.downcase(&1)))
+  end
+
+  defp has_narrator_noun?(line) do
+    Enum.any?(@narrator_nouns, &String.contains?(line, &1))
+  end
+
+  defp has_narrator_verb?(line) do
+    Enum.any?(@narrator_verbs, &String.contains?(line, &1))
   end
 
   defp issue_for(ctx, meta, trigger) do

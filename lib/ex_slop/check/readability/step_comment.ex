@@ -29,7 +29,7 @@ defmodule ExSlop.Check.Readability.StepComment do
       """
     ]
 
-  @step_pattern ~r/\A\s*#\s*(?:STEP|Step|step)\s+\d/
+  @step_prefixes ["STEP ", "Step ", "step "]
 
   alias Credo.SourceFile
   alias ExSlop.DocRanges
@@ -44,13 +44,26 @@ defmodule ExSlop.Check.Readability.StepComment do
     |> SourceFile.lines()
     |> Enum.reduce(ctx, fn {line_no, line}, ctx ->
       if not DocRanges.inside_doc?(line_no, doc_ranges) and
-           Regex.match?(@step_pattern, String.trim(line)) do
+           step_comment?(String.trim(line)) do
         put_issue(ctx, issue_for(ctx, line_no))
       else
         ctx
       end
     end)
     |> Map.get(:issues, [])
+  end
+
+  defp step_comment?(line) do
+    trimmed = String.trim_leading(line)
+
+    case trimmed do
+      "#" <> rest ->
+        rest = String.trim_leading(rest)
+        Enum.any?(@step_prefixes, &String.starts_with?(rest, &1))
+
+      _ ->
+        false
+    end
   end
 
   defp issue_for(ctx, line_no) do

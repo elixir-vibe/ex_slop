@@ -27,9 +27,15 @@ defmodule ExSlop.DocRanges do
   end
 
   defp heredoc_doc_start?(line) do
-    Regex.match?(~r/\A\s*@(?:doc|moduledoc)\s+(?:~[sS])?\"{3}/, line) or
-      Regex.match?(~r/\A\s*check:\s+\"{3}/, line) or
-      (Regex.match?(~r/\A\s*explanations:\s*\[/, line) and false)
+    trimmed = String.trim_leading(line)
+
+    String.starts_with?(trimmed, "@doc \"\"\"") or
+      String.starts_with?(trimmed, "@moduledoc \"\"\"") or
+      String.starts_with?(trimmed, "@doc ~S\"\"\"") or
+      String.starts_with?(trimmed, "@moduledoc ~S\"\"\"") or
+      String.starts_with?(trimmed, "@doc ~s\"\"\"") or
+      String.starts_with?(trimmed, "@moduledoc ~s\"\"\"") or
+      String.starts_with?(trimmed, "check: \"\"\"")
   end
 
   defp extract_delimiter(line) do

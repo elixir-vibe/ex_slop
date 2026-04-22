@@ -29,13 +29,54 @@ defmodule ExSlop.Check.Readability.NarratorComment do
       """
     ]
 
-  @narrator_pattern ~r/\A\s*#\s*(?:Here\s+we|Now\s+we|Let'?s|Next,?\s+we|Finally,?\s+we|First,?\s+we)\s/i
+  @narrator_starts [
+    "Here we",
+    "Now we",
+    "Let's",
+    "Lets",
+    "Next we",
+    "Next, we",
+    "Finally we",
+    "Finally, we",
+    "First we",
+    "First, we"
+  ]
 
-  @keeper_pattern ~r/\bTODO\b|\bFIXME\b|\bHACK\b|\bNOTE\b|\bSAFETY\b|\bWARN\b|\bBUG\b|\bXXX\b|\bPERF\b/
+  @keeper_keywords ["TODO", "FIXME", "HACK", "NOTE", "SAFETY", "WARN", "BUG", "XXX", "PERF"]
 
-  @tool_directive ~r/credo:|dialyzer:|sobelow:|coveralls|noinspection|elixir-ls|ExUnit/
+  @tool_keywords [
+    "credo:",
+    "dialyzer:",
+    "sobelow:",
+    "coveralls",
+    "noinspection",
+    "elixir-ls",
+    "ExUnit"
+  ]
 
-  @explanation_pattern ~r/because|since|due to|avoid|prevent|otherwise|in order|so that|so we|ensure|in case|necessary|need to handle|workaround|cannot|can't|shouldn't|must not|not supported|bootstrap|compat/i
+  @explanation_indicators [
+    "because",
+    "since",
+    "due to",
+    "avoid",
+    "prevent",
+    "otherwise",
+    "in order",
+    "so that",
+    "so we",
+    "ensure",
+    "in case",
+    "necessary",
+    "need to handle",
+    "workaround",
+    "cannot",
+    "can't",
+    "shouldn't",
+    "must not",
+    "not supported",
+    "bootstrap",
+    "compat"
+  ]
 
   @max_length 60
 
@@ -67,15 +108,35 @@ defmodule ExSlop.Check.Readability.NarratorComment do
 
     comment_body != nil and
       String.length(comment_body) <= @max_length and
-      Regex.match?(@narrator_pattern, line) and
-      not Regex.match?(@keeper_pattern, line) and
-      not Regex.match?(@tool_directive, line) and
-      not Regex.match?(@explanation_pattern, comment_body)
+      narrator_start?(comment_body) and
+      not keeper_keyword?(line) and
+      not tool_directive?(line) and
+      not explanation?(comment_body)
+  end
+
+  defp narrator_start?(comment) do
+    trimmed = String.trim_leading(comment)
+
+    Enum.any?(@narrator_starts, &String.starts_with?(trimmed, &1))
+  end
+
+  defp keeper_keyword?(line) do
+    Enum.any?(@keeper_keywords, &String.contains?(line, &1))
+  end
+
+  defp tool_directive?(line) do
+    Enum.any?(@tool_keywords, &String.contains?(line, &1))
+  end
+
+  defp explanation?(comment) do
+    Enum.any?(@explanation_indicators, &String.contains?(comment, &1))
   end
 
   defp extract_comment_body(line) do
-    case Regex.run(~r/\A\s*#\s*(.+)/, line) do
-      [_, body] -> body
+    trimmed = String.trim_leading(line)
+
+    case trimmed do
+      "#" <> rest -> String.trim_leading(rest)
       _ -> nil
     end
   end

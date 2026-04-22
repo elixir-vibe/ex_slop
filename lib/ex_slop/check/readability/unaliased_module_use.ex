@@ -98,37 +98,28 @@ defmodule ExSlop.Check.Readability.UnaliasedModuleUse do
   defp find_dense_uses(ast, aliases, min_count) do
     {_, issues} =
       Macro.prewalk(ast, [], fn
-        {:def, _, _} = node, acc ->
-          {_, fun_counts} =
-            Macro.prewalk(node, %{}, &count_fqns_in_body(&1, &2, aliases))
-
-          fun_issues =
-            fun_counts
-            |> Enum.filter(fn {_trigger, %{count: count}} -> count >= min_count end)
-            |> Enum.map(fn {trigger, %{line_no: line_no, count: count}} ->
-              {trigger, line_no, count}
-            end)
-
-          {node, fun_issues ++ acc}
-
-        {:defp, _, _} = node, acc ->
-          {_, fun_counts} =
-            Macro.prewalk(node, %{}, &count_fqns_in_body(&1, &2, aliases))
-
-          fun_issues =
-            fun_counts
-            |> Enum.filter(fn {_trigger, %{count: count}} -> count >= min_count end)
-            |> Enum.map(fn {trigger, %{line_no: line_no, count: count}} ->
-              {trigger, line_no, count}
-            end)
-
-          {node, fun_issues ++ acc}
+        {op, _, _} = node, acc when op in [:def, :defp] ->
+          {node, collect_fqns_from_fun(node, acc, aliases, min_count)}
 
         node, acc ->
           {node, acc}
       end)
 
     issues
+  end
+
+  defp collect_fqns_from_fun(node, acc, aliases, min_count) do
+    {_, fun_counts} =
+      Macro.prewalk(node, %{}, &count_fqns_in_body(&1, &2, aliases))
+
+    fun_issues =
+      fun_counts
+      |> Enum.filter(fn {_trigger, %{count: count}} -> count >= min_count end)
+      |> Enum.map(fn {trigger, %{line_no: line_no, count: count}} ->
+        {trigger, line_no, count}
+      end)
+
+    fun_issues ++ acc
   end
 
   defp count_fqns_in_body({:@, _, _}, acc, _aliases) do

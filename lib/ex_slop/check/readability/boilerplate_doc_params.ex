@@ -37,8 +37,15 @@ defmodule ExSlop.Check.Readability.BoilerplateDocParams do
       """
     ]
 
-  @section_heading ~r/^##\s+(?:Parameters|Params|Arguments|Args)\s*$/m
-  @boilerplate_entry ~r/^\s*-\s+`?(?:conn|params|socket|assigns)`?\s*[-:–]\s*(?:the\s+)?(?:connection(?:\s+struct)?|(?:a\s+)?map\s+of\s+param(?:eter)?s|(?:the\s+)?socket(?:\s+struct)?|(?:the\s+)?assigns(?:\s+map)?)\s*\.?\s*$/im
+  @section_headings ["## Parameters", "## Params", "## Arguments", "## Args"]
+
+  @boilerplate_params ["conn", "params", "socket", "assigns"]
+  @boilerplate_descriptions [
+    "connection",
+    "map of param",
+    "socket",
+    "assigns"
+  ]
 
   @doc false
   @impl true
@@ -59,7 +66,39 @@ defmodule ExSlop.Check.Readability.BoilerplateDocParams do
   defp walk(ast, ctx), do: {ast, ctx}
 
   defp boilerplate_params?(docstring) do
-    Regex.match?(@section_heading, docstring) and Regex.match?(@boilerplate_entry, docstring)
+    has_section_heading?(docstring) and has_boilerplate_entry?(docstring)
+  end
+
+  defp has_section_heading?(docstring) do
+    Enum.any?(@section_headings, &String.contains?(docstring, &1))
+  end
+
+  defp has_boilerplate_entry?(docstring) do
+    docstring
+    |> String.split("\n")
+    |> Enum.any?(&boilerplate_line?/1)
+  end
+
+  defp boilerplate_line?(line) do
+    trimmed = String.trim(line)
+
+    if String.starts_with?(trimmed, "-") do
+      content = String.trim_leading(trimmed, "-") |> String.trim()
+
+      param_match =
+        Enum.any?(@boilerplate_params, fn param ->
+          String.starts_with?(content, param) or String.starts_with?(content, "`#{param}`")
+        end)
+
+      desc_match =
+        Enum.any?(@boilerplate_descriptions, fn desc ->
+          String.contains?(String.downcase(content), desc)
+        end)
+
+      param_match and desc_match
+    else
+      false
+    end
   end
 
   defp issue_for(ctx, meta) do
