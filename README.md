@@ -50,7 +50,7 @@ existing `enabled` list:
 {ExSlop.Check.Readability.NarratorDoc, []},
 {ExSlop.Check.Readability.DocFalseOnPublicFunction, []},
 {ExSlop.Check.Readability.BoilerplateDocParams, []},
-{ExSlop.Check.Readability.ObviousComment, []},
+{ExSlop.Check.Readability.ObviousComment, [additional_keywords: []]},
 {ExSlop.Check.Readability.StepComment, []},
 {ExSlop.Check.Readability.NarratorComment, []}
 ```

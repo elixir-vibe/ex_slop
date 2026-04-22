@@ -114,4 +114,49 @@ defmodule ExSlop.Check.Readability.ObviousCommentTest do
     |> run_check(ObviousComment)
     |> refute_issues()
   end
+
+  test "reports configured string prefix" do
+    """
+    defmodule Test do
+      def foo do
+        # Hydrate the cache
+        hydrate_cache()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ObviousComment, additional_keywords: ["Hydrate the"])
+    |> assert_issue()
+  end
+
+  test "reports configured regex" do
+    """
+    defmodule Test do
+      def foo do
+        # Hydrate the cache
+        hydrate_cache()
+
+        # Hydrate something else (this one shouldn't be flagged)
+        hydrate_something_else()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ObviousComment, additional_keywords: [~r/\AHydrate\s+(?:the|a|an)\s/i])
+    |> assert_issue()
+  end
+
+  test "does NOT report configured string when it is not at the comment start" do
+    """
+    defmodule Test do
+      def foo do
+        # We should hydrate the cache
+        hydrate_cache()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ObviousComment, additional_keywords: ["Hydrate the"])
+    |> refute_issues()
+  end
 end
