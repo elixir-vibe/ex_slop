@@ -52,6 +52,7 @@ existing `enabled` list:
 {ExSlop.Check.Refactor.ReduceMapPut, []},
 {ExSlop.Check.Refactor.RedundantBooleanIf, []},
 {ExSlop.Check.Refactor.FlatMapFilter, []},
+{ExSlop.Check.Refactor.DuplicateClauseBody, []},
 {ExSlop.Check.Readability.NarratorDoc, []},
 {ExSlop.Check.Readability.DocFalseOnPublicFunction, []},
 {ExSlop.Check.Readability.BoilerplateDocParams, []},
@@ -96,6 +97,7 @@ Cherry-pick only the checks that make sense for your project.
 | `ReduceMapPut` | `Enum.reduce(%{}, fn x, acc -> Map.put(acc, k, v) end)` | `Map.new/2` |
 | `RedundantBooleanIf` | `if cond, do: true, else: false` | use the condition directly |
 | `FlatMapFilter` | `Enum.flat_map(fn x -> if cond, do: [x], else: [] end)` | `Enum.filter/2` |
+| `DuplicateClauseBody` | Multiple defp clauses with different guards but identical bodies | Combine guards with `or` |
 
 ### Readability
 
