@@ -28,7 +28,6 @@ defmodule ExSlop do
     ExSlop.Check.Refactor.ReduceMapPut,
     ExSlop.Check.Refactor.RedundantBooleanIf,
     ExSlop.Check.Refactor.FlatMapFilter,
-    ExSlop.Check.Refactor.DuplicateClauseBody,
     ExSlop.Check.Readability.NarratorDoc,
     ExSlop.Check.Readability.DocFalseOnPublicFunction,
     ExSlop.Check.Readability.BoilerplateDocParams,
