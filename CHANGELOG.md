@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+### Fixes
+
+- Improved `DualKeyAccess` to catch mixed atom/string access across `Map.get`, `Map.fetch`, `Map.fetch!`, `get_in`, access syntax, and chained `||` expressions.
+
 ## 0.3.0
 
 ### New check

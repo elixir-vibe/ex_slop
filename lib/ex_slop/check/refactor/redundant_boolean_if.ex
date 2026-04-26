@@ -38,7 +38,10 @@ defmodule ExSlop.Check.Refactor.RedundantBooleanIf do
   end
 
   # if cond do true else false end (keyword list form)
-  defp walk({:if, meta, [_cond, [do: {:__block__, _, [true]}, else: {:__block__, _, [false]}]]} = ast, ctx) do
+  defp walk(
+         {:if, meta, [_cond, [do: {:__block__, _, [true]}, else: {:__block__, _, [false]}]]} = ast,
+         ctx
+       ) do
     {ast, put_issue(ctx, issue_for(ctx, meta))}
   end
 

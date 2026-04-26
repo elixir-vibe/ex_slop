@@ -6,18 +6,16 @@ defmodule ExSlop.Check.Warning.DualKeyAccess do
     tags: [:ex_slop],
     explanations: [
       check: """
-      `Map.get(map, :atom) || Map.get(map, "string")` checks both atom and
-      string keys because the data shape is unknown. This is a sign of
-      defensive coding where the shape should be known.
-
-      Use `Map.get(map, key)` with a known key type, or normalize the map
-      once at the boundary.
+      Checking both atom and string keys for the same field means the data shape
+      is unknown. This is usually defensive coding where a boundary should
+      normalize the map once.
 
           # bad — doesn't know if keys are atoms or strings
           Map.get(usage, :input_tokens) || Map.get(usage, "input_tokens") || 0
+          get_in(data, [:path]) || get_in(data, ["path"])
+          payload[:kind] || payload["kind"]
 
-          # good — normalize once at the boundary, then use atom keys
-          usage = Map.new(usage, fn {k, v} -> {to_atom(k), v} end)
+          # good — normalize once at the boundary, then use one key type
           Map.get(usage, :input_tokens, 0)
       """
     ]
@@ -27,20 +25,13 @@ defmodule ExSlop.Check.Warning.DualKeyAccess do
   def run(%SourceFile{} = source_file, params) do
     ctx = Context.build(source_file, params, __MODULE__)
     result = Credo.Code.prewalk(source_file, &walk/2, ctx)
-    result.issues
+    Enum.uniq_by(result.issues, &{&1.filename, &1.line_no, &1.scope})
   end
 
-  # Map.get(map, :atom_key) || Map.get(map, "string_key")
-  defp walk(
-         {:||, meta,
-          [
-            {{:., _, [{:__aliases__, _, [:Map]}, :get]}, _, [map, atom_key]},
-            {{:., _, [{:__aliases__, _, [:Map]}, :get]}, _, [map2, string_key]}
-          ]} = ast,
-         ctx
-       )
-      when is_atom(atom_key) and is_binary(string_key) do
-    if same_variable?(map, map2) and Atom.to_string(atom_key) == string_key do
+  defp walk({:||, meta, _args} = ast, ctx) do
+    accesses = ast |> operands() |> Enum.flat_map(&accesses/1)
+
+    if dual_key_access?(accesses) do
       {ast, put_issue(ctx, issue_for(ctx, meta))}
     else
       {ast, ctx}
@@ -49,16 +40,48 @@ defmodule ExSlop.Check.Warning.DualKeyAccess do
 
   defp walk(ast, ctx), do: {ast, ctx}
 
-  defp same_variable?({name, _, ctx1}, {name, _, ctx2}) when is_atom(name) and is_atom(ctx1) and is_atom(ctx2),
-    do: true
+  defp operands({:||, _, [left, right]}), do: operands(left) ++ operands(right)
+  defp operands(ast), do: [ast]
 
-  defp same_variable?(_, _), do: false
+  defp accesses(ast) do
+    case access(ast) do
+      nil -> []
+      access -> [access]
+    end
+  end
+
+  defp access({{:., _, [{:__aliases__, _, [:Map]}, fun]}, _, [map, key | _]})
+       when fun in [:get, :fetch, :fetch!] do
+    keyed_access(map, key)
+  end
+
+  defp access({{:., _, [Access, :get]}, _, [map, key | _]}) do
+    keyed_access(map, key)
+  end
+
+  defp access({:get_in, _, [map, [key]]}) do
+    keyed_access(map, key)
+  end
+
+  defp access(_ast), do: nil
+
+  defp keyed_access(map, key) when is_atom(key),
+    do: {Macro.to_string(map), Atom.to_string(key), :atom}
+
+  defp keyed_access(map, key) when is_binary(key), do: {Macro.to_string(map), key, :string}
+  defp keyed_access(_map, _key), do: nil
+
+  defp dual_key_access?(accesses) do
+    accesses
+    |> Enum.group_by(fn {map, key, _type} -> {map, key} end, fn {_map, _key, type} -> type end)
+    |> Enum.any?(fn {_field, types} -> :atom in types and :string in types end)
+  end
 
   defp issue_for(ctx, meta) do
     format_issue(ctx,
       message:
-        "Dual-key `Map.get(m, :key) || Map.get(m, \"key\")` — normalize the map once instead of checking both key types.",
-      trigger: "Map.get",
+        "Dual atom/string key access — normalize the map once instead of checking both key types.",
+      trigger: "dual key access",
       line_no: meta[:line]
     )
   end

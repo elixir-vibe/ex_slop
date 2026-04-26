@@ -17,6 +17,58 @@ defmodule ExSlop.Check.Warning.DualKeyAccessTest do
     |> assert_issue()
   end
 
+  test "reports Map.get mixed with Map.fetch!" do
+    """
+    defmodule Example do
+      def extract(widget) do
+        Map.get(widget, :id) || Map.fetch!(widget, "id")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(DualKeyAccess)
+    |> assert_issue()
+  end
+
+  test "reports get_in atom and string paths" do
+    """
+    defmodule Example do
+      def extract(event) do
+        get_in(event.data, [:path]) || get_in(event.data, ["path"])
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(DualKeyAccess)
+    |> assert_issue()
+  end
+
+  test "reports access syntax atom and string keys" do
+    """
+    defmodule Example do
+      def extract(payload) do
+        payload[:kind] || payload["kind"]
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(DualKeyAccess)
+    |> assert_issue()
+  end
+
+  test "reports nested OR chains" do
+    """
+    defmodule Example do
+      def extract(tool) do
+        Map.get(tool, :args) || Map.get(tool, "args") || Map.get(tool, :params) || Map.get(tool, "params")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(DualKeyAccess)
+    |> assert_issue()
+  end
+
   test "does NOT report when atom and string keys differ" do
     """
     defmodule Example do

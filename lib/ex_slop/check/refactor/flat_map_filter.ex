@@ -32,7 +32,7 @@ defmodule ExSlop.Check.Refactor.FlatMapFilter do
          {{:., meta, [{:__aliases__, _, [:Enum]}, :flat_map]}, _, [_list, fun]} = ast,
          ctx
        ) do
-    if is_filter_via_flat_map?(fun) do
+    if filter_via_flat_map?(fun) do
       {ast, put_issue(ctx, issue_for(ctx, meta))}
     else
       {ast, ctx}
@@ -48,7 +48,7 @@ defmodule ExSlop.Check.Refactor.FlatMapFilter do
           ]} = ast,
          ctx
        ) do
-    if is_filter_via_flat_map?(fun) do
+    if filter_via_flat_map?(fun) do
       {ast, put_issue(ctx, issue_for(ctx, meta))}
     else
       {ast, ctx}
@@ -57,23 +57,30 @@ defmodule ExSlop.Check.Refactor.FlatMapFilter do
 
   defp walk(ast, ctx), do: {ast, ctx}
 
-  defp is_filter_via_flat_map?({:fn, _, [{:->, _, [_args, body]}]}) do
+  defp filter_via_flat_map?({:fn, _, [{:->, _, [_args, body]}]}) do
     matches_singleton_list_pattern?(body)
   end
 
-  defp is_filter_via_flat_map?({:fn, _, [{:->, _, [_args, [body]]}]}) do
+  defp filter_via_flat_map?({:fn, _, [{:->, _, [_args, [body]]}]}) do
     matches_singleton_list_pattern?(body)
   end
 
-  defp is_filter_via_flat_map?(_), do: false
+  defp filter_via_flat_map?(_), do: false
 
   # if cond, do: [expr], else: []
   defp matches_singleton_list_pattern?({:if, _, [_, [do: [_], else: []]]}), do: true
   defp matches_singleton_list_pattern?({:if, _, [_, [do: [], else: [_]]]}), do: true
 
   # Block form: if cond do [expr] else [] end
-  defp matches_singleton_list_pattern?({:if, _, [_, [do: {:__block__, _, [[_]]}, else: {:__block__, _, [[]]}]]}), do: true
-  defp matches_singleton_list_pattern?({:if, _, [_, [do: {:__block__, _, [[]]}, else: {:__block__, _, [[_]]}]]}), do: true
+  defp matches_singleton_list_pattern?(
+         {:if, _, [_, [do: {:__block__, _, [[_]]}, else: {:__block__, _, [[]]}]]}
+       ),
+       do: true
+
+  defp matches_singleton_list_pattern?(
+         {:if, _, [_, [do: {:__block__, _, [[]]}, else: {:__block__, _, [[_]]}]]}
+       ),
+       do: true
 
   defp matches_singleton_list_pattern?(_), do: false
 
