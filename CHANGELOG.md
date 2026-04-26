@@ -2,9 +2,18 @@
 
 ## 0.3.1
 
+### New checks
+
+- **`PathExpandPriv`** (`EXS1006`) — flags `Path.expand("...priv...", __DIR__)` for application resources; use `Application.app_dir/2` instead.
+- **`DualKeyAccess`** (`EXS1007`) — flags mixed atom/string key access; normalize data once at the boundary instead.
+- **`ReduceMapPut`** (`EXS4013`) — flags `Enum.reduce(%{}, fn x, acc -> Map.put(acc, key, value) end)`; use `Map.new/2` instead.
+- **`RedundantBooleanIf`** (`EXS4014`) — flags `if condition, do: true, else: false`; use the condition directly.
+- **`FlatMapFilter`** (`EXS4015`) — flags `Enum.flat_map(fn x -> if condition, do: [x], else: [] end)`; use `Enum.filter/2` instead.
+
 ### Fixes
 
 - Improved `DualKeyAccess` to catch mixed atom/string access across `Map.get`, `Map.fetch`, `Map.fetch!`, `get_in`, access syntax, and chained `||` expressions.
+- Fixed `BlanketRescue` false positives for specific exception rescues.
 
 ## 0.3.0
 
