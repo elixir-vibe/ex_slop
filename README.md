@@ -4,13 +4,15 @@
 
 Credo checks that catch AI-generated code slop in Elixir.
 
-29 checks for patterns that LLMs produce but experienced Elixir developers
+40 checks for patterns that LLMs produce but experienced Elixir developers
 don't — blanket rescues, narrator docs, obvious comments, anti-idiomatic
 Enum usage, try/rescue around non-raising functions, N+1 queries, and more.
 
-None of these overlap with built-in Credo: Credo never inspects doc/comment
+Most checks avoid built-in Credo overlap: Credo never inspects doc/comment
 **content**, doesn't catch Ecto anti-patterns or identity passthrough, and its
-`MapInto` / `CaseTrivialMatches` checks are disabled or deprecated.
+`MapInto` / `CaseTrivialMatches` checks are disabled or deprecated. A few
+semantic-performance checks intentionally overlap with useful Credo refactors
+so `{ExSlop, :recommended}` can serve generated-code validation pipelines.
 
 ## Installation
 
@@ -24,8 +26,14 @@ def deps do
 end
 ```
 
-Then add the checks you want to your `.credo.exs` — just append to the
-existing `enabled` list:
+Then add the curated recommended bundle to your `.credo.exs`:
+
+```elixir
+# .credo.exs
+{ExSlop, :recommended}
+```
+
+The recommended bundle enables 30 high-signal checks and leaves noisier style/performance checks opt-in. Or cherry-pick individual checks — append them to the existing `enabled` list:
 
 ```elixir
 # .credo.exs
@@ -52,6 +60,17 @@ existing `enabled` list:
 {ExSlop.Check.Refactor.ReduceMapPut, []},
 {ExSlop.Check.Refactor.RedundantBooleanIf, []},
 {ExSlop.Check.Refactor.FlatMapFilter, []},
+{ExSlop.Check.Refactor.RedundantEnumJoinSeparator, []},
+{ExSlop.Check.Refactor.UseMapJoin, []},
+{ExSlop.Check.Refactor.PreferEnumSlice, []},
+{ExSlop.Check.Refactor.GraphemesLength, []},
+{ExSlop.Check.Refactor.ManualStringReverse, []},
+{ExSlop.Check.Refactor.SortThenAt, []},
+{ExSlop.Check.Refactor.SortForTopK, []},
+{ExSlop.Check.Refactor.ListFold, []},
+{ExSlop.Check.Refactor.ListLast, []},
+{ExSlop.Check.Refactor.LengthInGuard, []},
+{ExSlop.Check.Refactor.ExplicitSumReduce, []},
 {ExSlop.Check.Readability.NarratorDoc, []},
 {ExSlop.Check.Readability.DocFalseOnPublicFunction, []},
 {ExSlop.Check.Readability.BoilerplateDocParams, []},
@@ -96,6 +115,17 @@ Cherry-pick only the checks that make sense for your project.
 | `ReduceMapPut` | `Enum.reduce(%{}, fn x, acc -> Map.put(acc, k, v) end)` | `Map.new/2` |
 | `RedundantBooleanIf` | `if cond, do: true, else: false` | use the condition directly |
 | `FlatMapFilter` | `Enum.flat_map(fn x -> if cond, do: [x], else: [] end)` | `Enum.filter/2` |
+| `RedundantEnumJoinSeparator` | `Enum.join(parts, "")` | `Enum.join(parts)` |
+| `UseMapJoin` | `Enum.map(...) |> Enum.join(...)` | `Enum.map_join(...)` |
+| `PreferEnumSlice` | `Enum.drop(n) |> Enum.take(k)` | `Enum.slice(enum, n, k)` |
+| `GraphemesLength` | `String.graphemes(s) |> length()` | `String.length(s)` |
+| `ManualStringReverse` | `String.graphemes(s) |> Enum.reverse() |> Enum.join()` | `String.reverse(s)` |
+| `SortThenAt` | `Enum.sort() |> Enum.at(0)` | `Enum.min/1`, `Enum.max/1`, or selection logic |
+| `SortForTopK` | `Enum.sort() |> Enum.take(1)` | `Enum.min/1`, `Enum.max/1`, or top-k selection |
+| `ListFold` | `List.foldl(list, acc, fun)` | `Enum.reduce(list, acc, fun)` |
+| `ListLast` | `List.last(list)` | avoid needing the last element after traversal |
+| `LengthInGuard` | `def f(xs) when length(xs) == 0` | pattern match on `[]` / `[_ | _]` |
+| `ExplicitSumReduce` | `Enum.reduce(nums, 0, fn n, acc -> n + acc end)` | `Enum.sum(nums)` |
 
 ### Readability
 
@@ -117,9 +147,6 @@ Enable them in your `.credo.exs` if you haven't already:
 ```elixir
 # Catches length(list) == 0 (traverses entire list) → use list == [] or Enum.empty?/1
 {Credo.Check.Warning.ExpensiveEmptyEnumCheck, []},
-
-# Catches Enum.map(...) |> Enum.join(...) → Enum.map_join(...)
-{Credo.Check.Refactor.MapJoin, []},
 
 # Catches acc ++ [item] (O(n²) append) → use [item | acc] then Enum.reverse
 {Credo.Check.Refactor.AppendSingleItem, []},
@@ -148,6 +175,10 @@ Enable them in your `.credo.exs` if you haven't already:
 # Catches unless x do .. else .. end → if/else (clearer)
 {Credo.Check.Refactor.UnlessWithElse, []}
 ```
+
+## Credits
+
+Several semantic-performance checks are inspired by [Credence](https://hex.pm/packages/credence), an MIT-licensed standalone semantic linter for generated Elixir code.
 
 ## License
 

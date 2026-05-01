@@ -77,8 +77,11 @@ defmodule ExSlop.Check.Warning.RescueWithoutReraise do
     found?
   end
 
-  defp returns_generic?({:__block__, _, exprs}), do: generic_return?(List.last(exprs))
+  defp returns_generic?({:__block__, _, exprs}), do: generic_return?(last_expr(exprs))
   defp returns_generic?(expr), do: generic_return?(expr)
+
+  defp last_expr([expr]), do: expr
+  defp last_expr([_ | rest]), do: last_expr(rest)
 
   defp generic_return?(:error), do: true
   defp generic_return?({:__block__, _, [:error]}), do: true

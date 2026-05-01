@@ -43,7 +43,7 @@ defmodule ExSlop.Check.Refactor.WithIdentityElse do
   defp walk(ast, ctx), do: {ast, ctx}
 
   defp else_clauses(args) do
-    case List.last(args) do
+    case last_arg(args) do
       kw when is_list(kw) ->
         if Keyword.has_key?(kw, :else), do: {:ok, kw[:else]}, else: :error
 
@@ -51,6 +51,9 @@ defmodule ExSlop.Check.Refactor.WithIdentityElse do
         :error
     end
   end
+
+  defp last_arg([arg]), do: arg
+  defp last_arg([_ | rest]), do: last_arg(rest)
 
   defp identity_clause?({:->, _meta, [[pattern], body]}) do
     Code.remove_metadata(pattern) == Code.remove_metadata(body)

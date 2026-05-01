@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.0
+
+### Added
+
+- Added **`ExSlop` recommended bundle** — configure `{ExSlop, :recommended}` to enable the curated high-signal check set.
+- Added **`ExSlop.recommended_checks/0`** for tools that want the same curated check list programmatically.
+- Added **`RedundantEnumJoinSeparator`** (`EXS4016`) — flags `Enum.join(parts, "")`; use `Enum.join(parts)` instead.
+- Added **`UseMapJoin`** (`EXS4017`) — flags `Enum.map/2 |> Enum.join/1`; use `Enum.map_join/3` instead. Opt-in only.
+- Added **`PreferEnumSlice`** (`EXS4018`) — flags `Enum.drop/2 |> Enum.take/2`; use `Enum.slice/3` instead. Opt-in only.
+- Added **`GraphemesLength`** (`EXS4019`) — flags counting `String.graphemes/1`; use `String.length/1` instead.
+- Added **`ManualStringReverse`** (`EXS4020`) — flags `String.graphemes/1 |> Enum.reverse/1 |> Enum.join/1`; use `String.reverse/1` instead.
+- Added **`SortThenAt`** (`EXS4021`) — flags `Enum.sort/1 |> Enum.at/2` when a single-pass selection is likely clearer.
+- Added **`SortForTopK`** (`EXS4022`) — flags `Enum.sort/1 |> Enum.take(1)` and `Enum.sort/1 |> hd/1`; use min/max or single-pass selection instead.
+- Added **`ListFold`** (`EXS4023`) — flags `List.foldl/3` and `List.foldr/3`; use `Enum.reduce/3` instead. Opt-in only.
+- Added **`ListLast`** (`EXS4024`) — flags `List.last/1` because it traverses the whole list. Opt-in only.
+- Added **`LengthInGuard`** (`EXS4025`) — flags `length/1` in guards; prefer pattern matching where possible. Opt-in only.
+- Added **`ExplicitSumReduce`** (`EXS4026`) — flags manual summing with `Enum.reduce/3`; use `Enum.sum/1` instead.
+
+### Changed
+
+- The recommended bundle now excludes checks that proved noisy on mature Elixir codebases, while keeping them available for explicit opt-in.
+- Updated documentation with the recommended bundle and full check list.
+
 ## 0.3.1
 
 ### New checks

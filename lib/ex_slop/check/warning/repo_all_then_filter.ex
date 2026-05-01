@@ -45,7 +45,8 @@ defmodule ExSlop.Check.Warning.RepoAllThenFilter do
 
   defp walk(ast, ctx), do: {ast, ctx}
 
-  defp repo_module?(modules) when is_list(modules), do: List.last(modules) == :Repo
+  defp repo_module?([:Repo]), do: true
+  defp repo_module?([_ | rest]), do: repo_module?(rest)
   defp repo_module?(_), do: false
 
   defp issue_for(ctx, meta, filter_fun) do

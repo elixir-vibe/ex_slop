@@ -49,7 +49,7 @@ defmodule ExSlop.Check.Refactor.WithIdentityDo do
   end
 
   defp has_else?(args) do
-    case List.last(args) do
+    case last_arg(args) do
       kw when is_list(kw) -> Keyword.has_key?(kw, :else)
       _ -> false
     end
@@ -58,7 +58,7 @@ defmodule ExSlop.Check.Refactor.WithIdentityDo do
   defp identity_do?(clause, args) do
     {:<-, _meta, [pattern, _expr]} = clause
 
-    case List.last(args) do
+    case last_arg(args) do
       kw when is_list(kw) ->
         body = Keyword.get(kw, :do)
 
@@ -68,6 +68,9 @@ defmodule ExSlop.Check.Refactor.WithIdentityDo do
         false
     end
   end
+
+  defp last_arg([arg]), do: arg
+  defp last_arg([_ | rest]), do: last_arg(rest)
 
   defp issue_for(ctx, meta) do
     format_issue(ctx,

@@ -135,8 +135,8 @@ defmodule ExSlop.Check.Readability.UnaliasedModuleUse do
          acc,
          aliases
        )
-       when is_list(mod_list) and is_atom(fun_atom) and length(mod_list) >= 2 do
-    if should_skip?(mod_list, aliases) do
+       when is_list(mod_list) and is_atom(fun_atom) do
+    if short_module?(mod_list) or should_skip?(mod_list, aliases) do
       {ast, acc}
     else
       trigger = Name.full(mod_list)
@@ -154,16 +154,22 @@ defmodule ExSlop.Check.Readability.UnaliasedModuleUse do
     {ast, acc}
   end
 
+  defp short_module?([_, _ | _]), do: false
+  defp short_module?(_), do: true
+
   defp should_skip?(mod_list, %{full: full, local: local}) do
     full_name = Name.full(mod_list)
 
     cond do
       Enum.any?(mod_list, &unquote?/1) -> true
       full_name in full -> true
-      length(mod_list) >= 2 and Name.full([hd(mod_list)]) in local -> true
+      locally_aliased?(mod_list, local) -> true
       true -> false
     end
   end
+
+  defp locally_aliased?([top | _], local), do: Name.full([top]) in local
+  defp locally_aliased?(_, _local), do: false
 
   defp unquote?({:unquote, _, _}), do: true
   defp unquote?(_), do: false

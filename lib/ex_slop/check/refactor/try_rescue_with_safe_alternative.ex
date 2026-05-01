@@ -79,8 +79,11 @@ defmodule ExSlop.Check.Refactor.TryRescueWithSafeAlternative do
   defp walk(ast, ctx), do: {ast, ctx}
 
   defp unwrap_body({:__block__, _, [single]}), do: single
-  defp unwrap_body({:__block__, _, exprs}), do: List.last(exprs)
+  defp unwrap_body({:__block__, _, exprs}), do: last_expr(exprs)
   defp unwrap_body(other), do: other
+
+  defp last_expr([expr]), do: expr
+  defp last_expr([_ | rest]), do: last_expr(rest)
 
   # Module.function(args)
   defp find_raising_call({{:., _, [{:__aliases__, _, [mod]}, fun]}, _, args})
