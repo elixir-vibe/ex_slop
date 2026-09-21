@@ -29,17 +29,30 @@ defmodule ExSlop.Check.Refactor.SortThenReverseTest do
     |> assert_issue()
   end
 
-  test "reports list |> Enum.sort_by(&fun/1) |> Enum.reverse()" do
+  test "does NOT report list |> Enum.sort_by(&fun/1) |> Enum.reverse() (tie order differs)" do
     """
     defmodule Test do
       def foo(list) do
-        list |> Enum.sort_by(&fun/1) |> Enum.reverse()
+        list |> Enum.sort_by(&elem(&1, 1)) |> Enum.reverse()
       end
     end
     """
     |> to_source_file()
     |> run_check(SortThenReverse)
-    |> assert_issue()
+    |> refute_issues()
+  end
+
+  test "does NOT report Enum.reverse(Enum.sort_by(list, fun))" do
+    """
+    defmodule Test do
+      def foo(list) do
+        Enum.reverse(Enum.sort_by(list, &elem(&1, 1)))
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(SortThenReverse)
+    |> refute_issues()
   end
 
   test "does NOT report list |> Enum.sort() |> Enum.map(& &1.name)" do
