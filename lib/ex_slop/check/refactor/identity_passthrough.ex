@@ -37,6 +37,7 @@ defmodule ExSlop.Check.Refactor.IdentityPassthrough do
     ]
 
   alias Credo.Code
+  alias ExSlop.Ast
 
   @doc false
   @impl true
@@ -48,8 +49,8 @@ defmodule ExSlop.Check.Refactor.IdentityPassthrough do
 
   # case expr do pattern1 -> pattern1; pattern2 -> pattern2 end
   defp walk({:case, meta, [_expr, [do: clauses]]} = ast, ctx) when is_list(clauses) do
-    if multiple_clauses?(clauses) and Enum.all?(clauses, &identity_clause?/1) do
-      exhaustive? = Enum.any?(clauses, &catch_all_clause?/1)
+    if multiple_clauses?(clauses) and Enum.all?(clauses, &Ast.identity_clause?/1) do
+      exhaustive? = Enum.any?(clauses, &Ast.catch_all_clause?/1)
       {ast, put_issue(ctx, issue_for(ctx, meta, exhaustive?))}
     else
       {ast, ctx}
@@ -60,19 +61,6 @@ defmodule ExSlop.Check.Refactor.IdentityPassthrough do
 
   defp multiple_clauses?([_, _ | _]), do: true
   defp multiple_clauses?(_), do: false
-
-  defp identity_clause?({:->, _meta, [[pattern], body]}) do
-    not ExSlop.Ast.contains_map?(pattern) and
-      Code.remove_metadata(pattern) == Code.remove_metadata(body)
-  end
-
-  defp identity_clause?(_), do: false
-
-  defp catch_all_clause?({:->, _meta, [[{name, _, context}], _body]})
-       when is_atom(name) and is_atom(context),
-       do: true
-
-  defp catch_all_clause?(_), do: false
 
   defp issue_for(ctx, meta, exhaustive?) do
     format_issue(ctx,
