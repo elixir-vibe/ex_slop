@@ -29,6 +29,21 @@ defmodule ExSlop.Check.Refactor.IdentityMapTest do
     |> assert_issue()
   end
 
+  test "suggests Enum.to_list/1 for non-list inputs" do
+    """
+    defmodule Test do
+      def foo do
+        Enum.map(1..2, fn x -> x end)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(IdentityMap)
+    |> assert_issue(fn issue ->
+      assert issue.message =~ "Enum.to_list/1"
+    end)
+  end
+
   test "does NOT report Enum.map with transformation" do
     """
     defmodule Test do

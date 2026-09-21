@@ -8,6 +8,7 @@
 - `ReduceMapPut` no longer flags reductions whose key or value reads the accumulator (e.g. summing duplicate keys), since `Map.new/2` cannot express them.
 - `PreferEnumSlice` no longer flags `Enum.drop/2 |> Enum.take/2` with negative literal arguments, which `Enum.slice/3` does not treat the same way.
 - `FlatMapFilter` now only flags callbacks whose singleton list holds the argument unchanged; `[x * 2]` is a transformation that `Enum.filter/2` cannot replace.
+- `IdentityMap` now suggests `Enum.to_list/1` for inputs that may not be lists (ranges, streams, `MapSet`s), since removing the call would change the return type.
 
 ## 0.4.4 - 2026-07-25
 
