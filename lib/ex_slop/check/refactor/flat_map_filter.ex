@@ -16,6 +16,13 @@ defmodule ExSlop.Check.Refactor.FlatMapFilter do
 
           # good — use Enum.filter
           Enum.filter(items, & &1.active)
+
+      Only reported when the singleton list holds the callback's argument
+      unchanged. A callback that transforms the element is a legitimate
+      `flat_map` (or a candidate for a `for` comprehension with a filter):
+
+          # not flagged — the value is transformed
+          Enum.flat_map(items, fn x -> if x > 0, do: [x * 2], else: [] end)
       """
     ]
 
@@ -57,32 +64,38 @@ defmodule ExSlop.Check.Refactor.FlatMapFilter do
 
   defp walk(ast, ctx), do: {ast, ctx}
 
-  defp filter_via_flat_map?({:fn, _, [{:->, _, [_args, body]}]}) do
-    matches_singleton_list_pattern?(body)
-  end
-
-  defp filter_via_flat_map?({:fn, _, [{:->, _, [_args, [body]]}]}) do
-    matches_singleton_list_pattern?(body)
+  # fn x -> if cond, do: [x], else: [] end
+  defp filter_via_flat_map?({:fn, _, [{:->, _, [[{var, _, context}], body]}]})
+       when is_atom(var) and is_atom(context) do
+    matches_singleton_list_pattern?(body, var)
   end
 
   defp filter_via_flat_map?(_), do: false
 
-  # if cond, do: [expr], else: []
-  defp matches_singleton_list_pattern?({:if, _, [_, [do: [_], else: []]]}), do: true
-  defp matches_singleton_list_pattern?({:if, _, [_, [do: [], else: [_]]]}), do: true
+  # if cond, do: [x], else: []
+  defp matches_singleton_list_pattern?({:if, _, [_, [do: [elem], else: []]]}, var),
+    do: same_var?(elem, var)
 
-  # Block form: if cond do [expr] else [] end
+  defp matches_singleton_list_pattern?({:if, _, [_, [do: [], else: [elem]]]}, var),
+    do: same_var?(elem, var)
+
+  # Block form: if cond do [x] else [] end
   defp matches_singleton_list_pattern?(
-         {:if, _, [_, [do: {:__block__, _, [[_]]}, else: {:__block__, _, [[]]}]]}
+         {:if, _, [_, [do: {:__block__, _, [[elem]]}, else: {:__block__, _, [[]]}]]},
+         var
        ),
-       do: true
+       do: same_var?(elem, var)
 
   defp matches_singleton_list_pattern?(
-         {:if, _, [_, [do: {:__block__, _, [[]]}, else: {:__block__, _, [[_]]}]]}
+         {:if, _, [_, [do: {:__block__, _, [[]]}, else: {:__block__, _, [[elem]]}]]},
+         var
        ),
-       do: true
+       do: same_var?(elem, var)
 
-  defp matches_singleton_list_pattern?(_), do: false
+  defp matches_singleton_list_pattern?(_, _), do: false
+
+  defp same_var?({var, _, context}, var) when is_atom(context), do: true
+  defp same_var?(_, _), do: false
 
   defp issue_for(ctx, meta) do
     format_issue(ctx,
