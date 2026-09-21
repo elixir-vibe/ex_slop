@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- `IdentityPassthrough` no longer flags map/struct projections (`%{a: a} -> %{a: a}` drops extra keys). A non-exhaustive identity `case` is still reported, but the message now notes that it raises `CaseClauseError` on unmatched values whereas returning the value directly does not.
+
 ## 0.4.4 - 2026-07-25
 
 ### Added

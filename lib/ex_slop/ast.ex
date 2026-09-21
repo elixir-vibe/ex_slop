@@ -15,6 +15,15 @@ defmodule ExSlop.Ast do
   def pipeline_steps({:|>, _, [left, right]}), do: pipeline_steps(left) ++ [right]
   def pipeline_steps(ast), do: [ast]
 
+  # Map and struct patterns match partially, so rebuilding them drops keys.
+  def contains_map?(ast) do
+    contains?(ast, fn
+      {:%{}, _, _} -> true
+      {:%, _, _} -> true
+      _ -> false
+    end)
+  end
+
   def contains?(ast, predicate) do
     {_ast, found?} =
       Macro.prewalk(ast, false, fn node, found? ->
