@@ -6,6 +6,7 @@
 
 - `IdentityPassthrough` no longer flags map/struct projections (`%{a: a} -> %{a: a}` drops extra keys). A non-exhaustive identity `case` is still reported, but the message now notes that it raises `CaseClauseError` on unmatched values whereas returning the value directly does not.
 - `ReduceMapPut` no longer flags reductions whose key or value reads the accumulator (e.g. summing duplicate keys), since `Map.new/2` cannot express them.
+- `PreferEnumSlice` no longer flags `Enum.drop/2 |> Enum.take/2` with negative literal arguments, which `Enum.slice/3` does not treat the same way.
 
 ## 0.4.4 - 2026-07-25
 

@@ -57,6 +57,28 @@ defmodule ExSlop.Check.Refactor.CredencePortsTest do
     |> assert_issue()
   end
 
+  test "does NOT report Enum.drop with a negative offset" do
+    """
+    defmodule Example do
+      def first_but_last_two(items), do: items |> Enum.drop(-2) |> Enum.take(1)
+    end
+    """
+    |> to_source_file()
+    |> run_check(PreferEnumSlice)
+    |> refute_issues()
+  end
+
+  test "does NOT report Enum.take with a negative amount" do
+    """
+    defmodule Example do
+      def last_after_first(items), do: items |> Enum.drop(1) |> Enum.take(-1)
+    end
+    """
+    |> to_source_file()
+    |> run_check(PreferEnumSlice)
+    |> refute_issues()
+  end
+
   test "reports counting String.graphemes" do
     """
     defmodule Example do
