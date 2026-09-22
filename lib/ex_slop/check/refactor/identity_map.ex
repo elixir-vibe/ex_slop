@@ -6,7 +6,8 @@ defmodule ExSlop.Check.Refactor.IdentityMap do
     tags: [:ex_slop],
     explanations: [
       check: """
-      `Enum.map(fn x -> x end)` is an identity map that returns the list unchanged.
+      `Enum.map(fn x -> x end)` is an identity map: every element is
+      returned unchanged.
 
           # bad
           list |> Enum.map(fn x -> x end)
@@ -14,6 +15,16 @@ defmodule ExSlop.Check.Refactor.IdentityMap do
 
           # good — just remove it
           list
+
+      Remember that `Enum.map/2` always returns a list. If the input may be
+      another enumerable (a range, a `MapSet`, a stream), replace the call
+      with `Enum.to_list/1` instead of removing it:
+
+          # bad
+          Enum.map(1..10, fn x -> x end)
+
+          # good
+          Enum.to_list(1..10)
       """
     ]
 
@@ -54,7 +65,8 @@ defmodule ExSlop.Check.Refactor.IdentityMap do
   defp issue_for(ctx, meta) do
     format_issue(ctx,
       message:
-        "Identity `Enum.map` — the function returns its argument unchanged. Just remove it.",
+        "Identity `Enum.map` — the function returns its argument unchanged. " <>
+          "Remove it, or use `Enum.to_list/1` if the input is not already a list.",
       trigger: "map",
       line_no: meta[:line]
     )

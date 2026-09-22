@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Fixed
+
+- `IdentityPassthrough` no longer flags map/struct projections (`%{a: a} -> %{a: a}` drops extra keys). A non-exhaustive identity `case` is still reported, but the message now notes that it raises `CaseClauseError` on unmatched values whereas returning the value directly does not.
+- `ReduceMapPut` no longer flags reductions whose key or value reads the accumulator (e.g. summing duplicate keys), since `Map.new/2` cannot express them.
+- `PreferEnumSlice` no longer flags `Enum.drop/2 |> Enum.take/2` with negative literal arguments, which `Enum.slice/3` does not treat the same way.
+- `FlatMapFilter` now only flags callbacks whose singleton list holds the argument unchanged; `[x * 2]` is a transformation that `Enum.filter/2` cannot replace.
+- `IdentityMap` now suggests `Enum.to_list/1` for inputs that may not be lists (ranges, streams, `MapSet`s), since removing the call would change the return type.
+- `SortThenReverse` no longer flags `Enum.sort_by/2 |> Enum.reverse/1`: sorting is stable, so the reverse changes the relative order of equal keys while `Enum.sort_by(fun, :desc)` preserves it.
+- `WithIdentityElse` no longer treats map/struct patterns as identity. A non-exhaustive identity `else` is still reported, but the message now notes that it raises `WithClauseError` on unmatched values whereas removing it would return them as-is.
+
 ## 0.4.4 - 2026-07-25
 
 ### Added

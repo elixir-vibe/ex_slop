@@ -49,6 +49,36 @@ defmodule ExSlop.Check.Refactor.FlatMapFilterTest do
     |> assert_issue()
   end
 
+  test "does NOT report flat_map whose singleton transforms the element" do
+    """
+    defmodule Example do
+      def doubled_positives(items) do
+        Enum.flat_map(items, fn x ->
+          if x > 0, do: [x * 2], else: []
+        end)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(FlatMapFilter)
+    |> refute_issues()
+  end
+
+  test "does NOT report flat_map whose singleton holds a different variable" do
+    """
+    defmodule Example do
+      def children(items) do
+        Enum.flat_map(items, fn %{child: child} = item ->
+          if item.active, do: [child], else: []
+        end)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(FlatMapFilter)
+    |> refute_issues()
+  end
+
   test "does NOT report legitimate flat_map with multi-element lists" do
     """
     defmodule Example do

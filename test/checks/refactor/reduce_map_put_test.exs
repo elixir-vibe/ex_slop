@@ -49,6 +49,36 @@ defmodule ExSlop.Check.Refactor.ReduceMapPutTest do
     |> refute_issues()
   end
 
+  test "does NOT report Enum.reduce whose value reads the accumulator" do
+    """
+    defmodule Example do
+      def sum_by_key(entries) do
+        Enum.reduce(entries, %{}, fn {key, amount}, acc ->
+          Map.put(acc, key, Map.get(acc, key, 0) + amount)
+        end)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ReduceMapPut)
+    |> refute_issues()
+  end
+
+  test "does NOT report Enum.reduce whose key reads the accumulator" do
+    """
+    defmodule Example do
+      def index(items) do
+        Enum.reduce(items, %{}, fn item, acc ->
+          Map.put(acc, map_size(acc), item)
+        end)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ReduceMapPut)
+    |> refute_issues()
+  end
+
   test "does NOT report Map.new" do
     """
     defmodule Example do

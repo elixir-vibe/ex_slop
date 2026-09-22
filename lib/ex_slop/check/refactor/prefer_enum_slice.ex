@@ -13,6 +13,14 @@ defmodule ExSlop.Check.Refactor.PreferEnumSlice do
 
           # good
           Enum.slice(items, offset, limit)
+
+      Negative literal arguments are not reported: `Enum.drop/2` and
+      `Enum.take/2` count from the end for negative values, while
+      `Enum.slice/3` interprets a negative start differently and rejects a
+      negative amount.
+
+          # not flagged — drops the last two, then takes the first
+          items |> Enum.drop(-2) |> Enum.take(1)
       """
     ]
 
@@ -39,9 +47,18 @@ defmodule ExSlop.Check.Refactor.PreferEnumSlice do
   defp drop_take_pipeline?(steps) do
     Enum.chunk_every(steps, 2, 1, :discard)
     |> Enum.any?(fn [left, right] ->
-      ExSlop.Ast.remote_call?(left, :Enum, :drop) and ExSlop.Ast.remote_call?(right, :Enum, :take)
+      ExSlop.Ast.remote_call?(left, :Enum, :drop) and
+        ExSlop.Ast.remote_call?(right, :Enum, :take) and
+        not negative_literal_arg?(left) and not negative_literal_arg?(right)
     end)
   end
+
+  defp negative_literal_arg?({_, _, [arg]}), do: negative_literal?(arg)
+  defp negative_literal_arg?(_), do: false
+
+  defp negative_literal?(int) when is_integer(int), do: int < 0
+  defp negative_literal?({:-, _, [int]}) when is_integer(int), do: true
+  defp negative_literal?(_), do: false
 
   defp issue_for(ctx, meta) do
     format_issue(ctx,

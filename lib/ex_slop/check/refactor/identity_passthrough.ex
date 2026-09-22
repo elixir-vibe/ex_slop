@@ -6,31 +6,38 @@ defmodule ExSlop.Check.Refactor.IdentityPassthrough do
     tags: [:ex_slop],
     explanations: [
       check: """
-      A `case` or `with` that matches patterns only to return the same thing
-      is a no-op — just return the value directly.
+      A `case` that matches patterns only to return the same thing is a
+      no-op — just return the value directly.
 
           # bad — identity passthrough
           case result do
             {:ok, value} -> {:ok, value}
-            {:error, reason} -> {:error, reason}
+            other -> other
           end
 
           # good
           result
 
-          # bad — with + else that does nothing
-          with {:ok, result} <- do_something() do
-            {:ok, result}
-          else
-            {:error, reason} -> {:error, reason}
-          end
+      Note that a `case` without a catch-all clause raises `CaseClauseError`
+      for values it does not match, while returning the value directly does
+      not. Such a `case` is still reported — it is far more common in
+      generated code than in hand-written code — but if raising on
+      unexpected shapes is the point, say so with an explicit clause rather
+      than relying on the identity `case`.
 
-          # good
-          do_something()
+      Map and struct patterns are never treated as identity, because they
+      match extra keys that the rebuilt map drops:
+
+          # not flagged — this is a projection, not a passthrough
+          case value do
+            %{a: a} -> %{a: a}
+            %{b: b} -> %{b: b}
+          end
       """
     ]
 
   alias Credo.Code
+  alias ExSlop.Ast
 
   @doc false
   @impl true
@@ -42,8 +49,9 @@ defmodule ExSlop.Check.Refactor.IdentityPassthrough do
 
   # case expr do pattern1 -> pattern1; pattern2 -> pattern2 end
   defp walk({:case, meta, [_expr, [do: clauses]]} = ast, ctx) when is_list(clauses) do
-    if multiple_clauses?(clauses) and Enum.all?(clauses, &identity_clause?/1) do
-      {ast, put_issue(ctx, issue_for(ctx, meta, "case"))}
+    if multiple_clauses?(clauses) and Enum.all?(clauses, &Ast.identity_clause?/1) do
+      exhaustive? = Enum.any?(clauses, &Ast.catch_all_clause?/1)
+      {ast, put_issue(ctx, issue_for(ctx, meta, exhaustive?))}
     else
       {ast, ctx}
     end
@@ -54,18 +62,19 @@ defmodule ExSlop.Check.Refactor.IdentityPassthrough do
   defp multiple_clauses?([_, _ | _]), do: true
   defp multiple_clauses?(_), do: false
 
-  defp identity_clause?({:->, _meta, [[pattern], body]}) do
-    Code.remove_metadata(pattern) == Code.remove_metadata(body)
-  end
-
-  defp identity_clause?(_), do: false
-
-  defp issue_for(ctx, meta, trigger) do
+  defp issue_for(ctx, meta, exhaustive?) do
     format_issue(ctx,
-      message:
-        "Identity `#{trigger}` — every clause returns what it matched. Just return the value.",
-      trigger: trigger,
+      message: message(exhaustive?),
+      trigger: "case",
       line_no: meta[:line]
     )
   end
+
+  defp message(true),
+    do: "Identity `case` — every clause returns what it matched. Just return the value."
+
+  defp message(false),
+    do:
+      "Identity `case` — every clause returns what it matched. Return the value directly; " <>
+        "if raising on other shapes is intended, add an explicit clause that raises."
 end

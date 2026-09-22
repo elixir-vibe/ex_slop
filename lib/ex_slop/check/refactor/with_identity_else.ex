@@ -18,10 +18,21 @@ defmodule ExSlop.Check.Refactor.WithIdentityElse do
 
           # good
           do_something()
+
+      Note that an `else` without a catch-all clause raises `WithClauseError`
+      for values it does not match, while a `with` without `else` returns
+      them as-is. Such an `else` is still reported — it is far more common in
+      generated code than in hand-written code — but if raising on
+      unexpected values is the point, say so with an explicit clause rather
+      than relying on the identity `else`.
+
+      Map and struct patterns are never treated as identity, because they
+      match extra keys that the rebuilt map drops.
       """
     ]
 
   alias Credo.Code
+  alias ExSlop.Ast
 
   @doc false
   @impl true
@@ -33,8 +44,9 @@ defmodule ExSlop.Check.Refactor.WithIdentityElse do
 
   defp walk({:with, meta, args} = ast, ctx) when is_list(args) do
     with {:ok, clauses} <- else_clauses(args),
-         true <- clauses != [] and Enum.all?(clauses, &identity_clause?/1) do
-      {ast, put_issue(ctx, issue_for(ctx, meta))}
+         true <- clauses != [] and Enum.all?(clauses, &Ast.identity_clause?/1) do
+      exhaustive? = Enum.any?(clauses, &Ast.catch_all_clause?/1)
+      {ast, put_issue(ctx, issue_for(ctx, meta, exhaustive?))}
     else
       _ -> {ast, ctx}
     end
@@ -55,18 +67,20 @@ defmodule ExSlop.Check.Refactor.WithIdentityElse do
   defp last_arg([arg]), do: arg
   defp last_arg([_ | rest]), do: last_arg(rest)
 
-  defp identity_clause?({:->, _meta, [[pattern], body]}) do
-    Code.remove_metadata(pattern) == Code.remove_metadata(body)
-  end
-
-  defp identity_clause?(_), do: false
-
-  defp issue_for(ctx, meta) do
+  defp issue_for(ctx, meta, exhaustive?) do
     format_issue(ctx,
-      message:
-        "Identity `else` in `with` — every clause returns what it matched. The `else` block is redundant.",
+      message: message(exhaustive?),
       trigger: "with",
       line_no: meta[:line]
     )
   end
+
+  defp message(true),
+    do:
+      "Identity `else` in `with` — every clause returns what it matched. The `else` block is redundant."
+
+  defp message(false),
+    do:
+      "Identity `else` in `with` — every clause returns what it matched. Remove the `else`; " <>
+        "if raising on other values is intended, add an explicit clause that raises."
 end
