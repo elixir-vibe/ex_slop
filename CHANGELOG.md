@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- `DualKeyAccess` now also flags a variable key read next to its converted form (`Map.get(data, key) || Map.get(data, Atom.to_string(key))`, also `to_string/1`, `String.to_atom/1`, `String.to_existing_atom/1` and access syntax), and adjacent clauses of one function whose heads match the same literal map key as an atom in one clause and a string in another. Struct patterns are not compared.
+
 ## 0.4.5 - 2026-09-22
 
 ### Fixed

@@ -123,7 +123,7 @@ Cherry-pick only the checks that make sense for your project.
 | `QueryInEnumMap` | `Enum.map(users, fn u -> Repo.get(...) end)` — N+1 query |
 | `GenserverAsKvStore` | GenServer that's just `Map.get`/`Map.put` on state — use ETS or Agent |
 | `PathExpandPriv` | `Path.expand("...priv...", __DIR__)` — use `Application.app_dir/2` |
-| `DualKeyAccess` | `Map.get(m, :key) \|\| Map.get(m, "key")`, `get_in(m, [:key]) \|\| get_in(m, ["key"])`, or `m[:key] \|\| m["key"]` — normalize once instead |
+| `DualKeyAccess` | `Map.get(m, :key) \|\| Map.get(m, "key")`, `get_in(m, [:key]) \|\| get_in(m, ["key"])`, or `m[:key] \|\| m["key"]`, the same with a variable key and `Atom.to_string(key)`, or clauses matching `%{"key" => _}` and `%{key: _}` — normalize once instead |
 
 ### Refactoring
 
