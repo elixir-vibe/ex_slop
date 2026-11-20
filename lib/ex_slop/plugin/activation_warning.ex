@@ -13,15 +13,24 @@ defmodule ExSlop.Plugin.ActivationWarning do
   end
 
   @doc false
-  def active?(%Execution{checks: %{enabled: enabled}}) when is_list(enabled) do
-    Enum.any?(enabled, fn
-      {_module, false} -> false
-      {module, _params} -> module in ExSlop.checks()
-    end)
+  def active?(exec) do
+    case enabled_checks(exec) do
+      enabled when is_list(enabled) ->
+        Enum.any?(enabled, fn
+          {_module, false} -> false
+          {module, _params} -> module in ExSlop.checks()
+        end)
+
+      # Stay quiet when the ExSlop check set can't be determined.
+      _ ->
+        true
+    end
   end
 
-  # Stay quiet when the ExSlop check set can't be determined.
-  def active?(_exec), do: true
+  # Credo 1.8+ moves runtime config (including `checks`) from `%Credo.Execution{}` into `exec.config`
+  defp enabled_checks(%{config: %{checks: %{enabled: enabled}}}), do: enabled
+  defp enabled_checks(%{checks: %{enabled: enabled}}), do: enabled
+  defp enabled_checks(_exec), do: nil
 
   defp warn do
     UI.warn([
